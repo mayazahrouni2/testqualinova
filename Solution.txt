@@ -1,0 +1,280 @@
+ARCHITECTURE GLOBALE 
+L’application est composée de deux modules indépendants : 
+1.​ Module Audit Interne​
+ 
+2.​ Module Certification ISO​
+ 
+Les deux modules peuvent fonctionner séparément ou être interconnectés. 
+ 
+MODULE 1 : AUDIT INTERNE 
+Objectif 
+Automatiser l’évaluation de conformité interne sur la base d’une checklist fournie (ISO ou 
+interne). 
+ 
+Agents du Module Audit Interne 
+1. Agent Checklist Manager 
+Rôle : 
+●​ Importer la checklist (Excel, PDF structuré, formulaire interne)​
+ 
+●​ Structurer les exigences (ID, description, criticité)​
+ 
+●​ Enregistrer les critères d’évaluation​
+ 
+Événement publié :​
+ checklist_ready 
+ 
+2. Agent Evidence Mapper 
+Rôle : 
+●​ Associer chaque exigence aux documents/preuves disponibles​
+ 
+●​ Vérifier l’existence des preuves​
+ 
+●​ Identifier les exigences sans preuve liée​
+ 
+Événement publié :​
+ evidence_mapped 
+Abonnement :​
+ checklist_ready 
+ 
+3. Agent Compliance Evaluator 
+Rôle : 
+●​ Vérifier la validité des documents :​
+ 
+○​ Version​
+ 
+○​ Date​
+ 
+○​ Responsable​
+ 
+○​ Cohérence avec l’exigence​
+ 
+●​ Évaluer le statut :​
+ 
+○​ Conforme​
+ 
+○​ Partiellement conforme​
+ 
+○​ Non conforme​
+ 
+Événement publié :​
+ compliance_evaluated 
+Abonnement :​
+ evidence_mapped 
+ 
+4. Agent Non-Conformity Manager 
+Rôle : 
+●​ Identifier toutes les exigences non conformes​
+ 
+●​ Classer par criticité​
+ 
+●​ Enregistrer les non-conformités​
+ 
+Événement publié :​
+ nc_generated 
+Abonnement :​
+ compliance_evaluated 
+ 
+5. Agent CAPA Manager 
+Rôle : 
+●​ Créer les actions correctives​
+ 
+●​ Assigner les responsables​
+ 
+●​ Définir les échéances​
+ 
+●​ Suivre l’avancement​
+ 
+●​ Clôturer après validation des preuves​
+ 
+Événement publié :​
+ capa_updated 
+Abonnement :​
+ nc_generated 
+ 
+6. Agent Audit Report Generator 
+Rôle : 
+●​ Générer le rapport d’audit interne​
+ 
+●​ Produire :​
+ 
+○​ Résumé exécutif​
+ 
+○​ Tableau de conformité​
+ 
+○​ Score global​
+ 
+○​ Liste des NC et CAPA​
+ 
+Événement publié :​
+ audit_report_ready 
+Abonnement :​
+ compliance_evaluated et capa_updated 
+ Agent Anti-Falsification (optionnel) 
+Détecte : 
+●​ Modifications massives avant audit​
+ 
+●​ Incohérences temporelles​
+ 
+●​ Création rétroactive suspecte​
+ 
+Très utile pour crédibilité interne. 
+ 
+Flux global du Module Audit Interne 
+1.​ Import checklist​
+ → Checklist Manager​
+ → checklist_ready​
+ 
+2.​ Association preuves​
+ → Evidence Mapper​
+ → evidence_mapped​
+ 
+3.​ Évaluation conformité​
+ → Compliance Evaluator​
+ → compliance_evaluated​
+ 
+4.​ Génération NC​
+ → Non-Conformity Manager​
+ → nc_generated​
+ 
+5.​ Création CAPA​
+ → CAPA Manager​
+ → capa_updated​
+ 
+6.​ Rapport final​
+ → Audit Report Generator​
+ → audit_report_ready​
+ 
+ 
+MODULE 2 : CERTIFICATION ISO 
+Objectif 
+Préparer, structurer et suivre l’obtention et le maintien d’un certificat ISO. 
+Normes pouvant être prises en charge : 
+●​ ISO 9001​
+ 
+●​ ISO 14001​
+ 
+●​ ISO 27001​
+ 
+●​ ISO 45001​
+ 
+ 
+Agents du Module Certification 
+1. Agent Certification Diagnostic 
+Rôle : 
+●​ Analyser la couverture des exigences de la norme choisie​
+ 
+●​ Identifier le niveau de préparation initial​
+ 
+●​ Exploiter les données issues du module Audit si disponible​
+ 
+Événement publié :​
+ cert_diagnostic_done 
+ 
+2. Agent Gap Analysis 
+Rôle : 
+●​ Identifier les écarts critiques bloquants​
+ 
+●​ Classer les écarts par impact sur la certification​
+ 
+●​ Produire un plan d’action stratégique​
+ 
+Événement publié :​
+ gap_analysis_ready 
+Abonnement :​
+ cert_diagnostic_done 
+ 
+3. Agent Certification Readiness Score 
+Rôle : 
+Calculer un score global basé sur : 
+●​ Pourcentage d’exigences conformes​
+ 
+●​ Nombre de NC ouvertes​
+ 
+●​ Taux de CAPA clôturées​
+ 
+●​ Stabilité documentaire​
+ 
+Événement publié :​
+ readiness_score_updated 
+Abonnement :​
+ gap_analysis_ready et capa_updated (si module audit actif) 
+ 
+4. Agent Certification Dossier Builder 
+Rôle : 
+●​ Compiler :​
+ 
+○​ Checklist complète​
+ 
+○​ Preuves associées​
+ 
+○​ Rapports d’audit interne​
+ 
+○​ Historique des CAPA​
+ 
+●​ Générer un dossier prêt pour audit externe​
+ 
+Événement publié :​
+ certification_file_ready 
+Abonnement :​
+ readiness_score_updated 
+ 
+5. Agent Certification Follow-Up 
+Rôle : 
+●​ Suivre les remarques de l’auditeur externe​
+ 
+●​ Enregistrer les écarts post-audit​
+ 
+●​ Planifier audits de surveillance​
+ 
+●​ Gérer le renouvellement​
+ 
+Événement publié :​
+ certification_status_updated 
+Abonnement :​
+ certification_file_ready 
+ 
+COMMUNICATION ENTRE LES 
+MODULES 
+Lorsque les deux modules sont activés : 
+Le module Certification s’abonne aux événements suivants du module Audit : 
+●​ nc_generated​
+ 
+●​ capa_updated​
+ 
+●​ audit_report_ready​
+ 
+Ces données alimentent : 
+●​ Gap Analysis​
+ 
+●​ Readiness Score​
+ 
+●​ Dossier Builder​
+ 
+Ainsi : 
+Audit interne → améliore automatiquement la préparation à la certification. 
+ 
+SYNTHÈSE FINALE 
+Module Audit Interne (6 agents) 
+1.​ Checklist Manager​
+ 
+2.​ Evidence Mapper​
+ 
+3.​ Compliance Evaluator​
+ 
+4.​ Non-Conformity Manager​
+ 
+5.​ CAPA Manager​
+ 
+6.​ Audit Report Generator​
+ 
+Module Certification (5 agents) 
+1.​ Certification Diagnostic​
+ 
+2.​ Gap Analysis​
+ 
+3.​ Certification Readiness Score​
+ 
+4.​ Certification Dossier Builder​
+ 
+5.​ Certification Follow-Up 
+ 

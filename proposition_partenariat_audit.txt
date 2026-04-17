@@ -1,0 +1,122 @@
+Proposition de Partenariat 
+Plateforme digitale d’accompagnement des audits et de 
+la conformité ISO 
+ 
+1. Contexte et constat 
+Aujourd’hui, de nombreuses organisations rencontrent des difficultés dans la gestion de 
+leurs processus d’audit interne et dans la préparation aux certifications ISO. 
+Plusieurs problématiques reviennent fréquemment : 
+●​ Les documents et procédures sont souvent mis à jour uniquement à l’approche d’un 
+audit, au lieu d’être maintenus de manière continue. 
+●​ Les entreprises ne disposent pas toujours d’un système fiable permettant de suivre 
+les modifications des documents, leurs versions ou leurs responsables. 
+●​ Les exigences des normes ISO peuvent être complexes à interpréter et à maintenir 
+dans le temps sans accompagnement spécialisé. 
+●​ Les organisations manquent souvent de processus structurés pour gérer 
+efficacement leurs audits internes. 
+Ces difficultés peuvent conduire à : 
+●​ une préparation tardive aux audits, 
+●​ un manque de traçabilité documentaire, 
+●​ une mauvaise compréhension des exigences normatives, 
+●​ et une dépendance forte aux prestataires externes. 
+Selon certaines études sur la gouvernance et l’audit d’entreprise : 
+●​ 25 % des organisations disposent de structures d’audit internes faibles 
+●​ 35 % des audits échouent à cause d’une documentation insuffisante 
+●​ 30 % des organisations échouent aux audits ISO en raison d’une mauvaise 
+compréhension des normes​
+ Copy of Blue Dark Professional … 
+Ces constats montrent l’importance de disposer d’outils permettant de structurer et de 
+simplifier la gestion des audits et de la conformité. 
+ 
+2. Présentation du projet 
+Dans ce contexte, nous travaillons sur la conception d’une plateforme digitale dédiée à la 
+gestion des audits internes et à l’accompagnement des démarches de certification. 
+L’objectif de cette plateforme est de proposer un environnement structuré permettant aux 
+organisations de : 
+●​ organiser et centraliser leur documentation d’audit 
+●​ préparer leurs audits internes de manière plus efficace 
+●​ suivre les constats d’audit et les non-conformités 
+●​ piloter les actions correctives 
+●​ faciliter la préparation aux audits de certification 
+Cette plateforme vise à simplifier et structurer l’ensemble du cycle d’audit, depuis la 
+préparation jusqu’au suivi des actions d’amélioration. 
+ 
+3. Concept général de la solution 
+La solution repose sur deux grands axes fonctionnels complémentaires : 
+1. Gestion des audits internes 
+La plateforme permet aux organisations de structurer leurs audits internes à travers : 
+●​ l’organisation des checklists d’audit 
+●​ la centralisation des preuves et documents 
+●​ l’évaluation du niveau de conformité 
+●​ l’identification des écarts et non-conformités 
+●​ le suivi des actions correctives 
+L’objectif est de permettre aux entreprises de disposer d’une vision claire et structurée de 
+leur niveau de conformité interne. 
+ 
+2. Accompagnement vers la certification ISO 
+La plateforme vise également à aider les organisations à préparer et maintenir leurs 
+certifications ISO telles que : 
+●​ ISO 9001 
+●​ ISO 14001 
+●​ ISO 27001 
+●​ ISO 45001 
+Elle permet notamment de : 
+●​ analyser le niveau de préparation d’une organisation 
+●​ identifier les écarts par rapport aux exigences de la norme 
+●​ structurer les plans d’actions nécessaires 
+●​ suivre les actions correctives et les améliorations 
+●​ préparer les éléments nécessaires aux audits de certification.​
+ Solution 
+Ainsi, les audits internes deviennent un véritable levier pour améliorer la préparation à la 
+certification et renforcer la conformité organisationnelle. 
+ 
+4. Objectifs du projet 
+Ce projet vise principalement à : 
+●​ améliorer l’efficacité des audits internes 
+●​ faciliter la compréhension et l’application des exigences ISO 
+●​ structurer la gestion documentaire liée aux audits 
+●​ renforcer la traçabilité et le suivi des actions correctives 
+●​ offrir un environnement digital structuré pour les activités d’audit. 
+ 
+5. Intérêt d’un partenariat avec un 
+cabinet d’audit 
+Dans le cadre du développement de ce projet, la collaboration avec un cabinet d’audit ou de 
+conseil représente un apport essentiel. 
+Un tel partenariat permettrait notamment : 
+●​ de valider l’approche fonctionnelle du projet 
+●​ de s’assurer que la solution correspond aux pratiques professionnelles du secteur 
+●​ d’intégrer les retours d’expérience d’auditeurs expérimentés 
+●​ d’aligner la plateforme avec les besoins réels des entreprises et des cabinets d’audit. 
+ 
+6. Type de collaboration envisagé 
+Nous souhaiterions, si possible, bénéficier de l’accompagnement d’un cabinet d’audit à 
+travers : 
+Orientation et expertise 
+●​ compréhension du déroulement réel des audits internes 
+●​ bonnes pratiques utilisées dans les missions d’audit 
+●​ validation du cadre méthodologique du projet 
+Échanges et feedback 
+●​ réunions ponctuelles pour discuter de l’avancement du projet 
+●​ retours d’expérience sur les fonctionnalités envisagées 
+●​ conseils pour améliorer la pertinence de la solution 
+Exemples de pratiques professionnelles 
+Si cela est possible, certains exemples non confidentiels pourraient être utiles pour mieux 
+comprendre les processus d’audit, comme : 
+●​ des exemples de checklists d’audit 
+●​ des modèles de rapports d’audit 
+●​ des méthodes d’évaluation de conformité 
+●​ des exemples de suivi des actions correctives. 
+Bien entendu, toute information partagée pourra être protégée par un accord de 
+confidentialité (NDA) si nécessaire. 
+ 
+7. Conclusion 
+Ce projet vise à développer une solution innovante permettant de structurer et simplifier 
+la gestion des audits internes et des démarches de certification. 
+Un partenariat avec un cabinet d’audit constituerait une opportunité précieuse pour : 
+●​ rapprocher la solution des réalités du terrain, 
+●​ enrichir la réflexion autour des bonnes pratiques d’audit, 
+●​ et développer une plateforme réellement adaptée aux besoins des organisations. 
+Nous serions ravis de pouvoir échanger avec vous afin d’explorer les possibilités de 
+collaboration autour de ce projet. 
+ 
+ 

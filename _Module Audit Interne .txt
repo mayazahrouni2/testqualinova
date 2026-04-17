@@ -1,0 +1,901 @@
+ 
+ 
+Document : Module Audit Interne — 
+Design Multi-Agents Open Source 
+(Stack Free) 
+ 
+📌Objectif 
+Mettre en place un module Audit Interne fondé sur un flux multi-agents, opérant 
+exclusivement sur une stack open-source/free, avec une logique évolutive centrée d’abord 
+sur la robustesse des données puis sur les capacités IA. Le focus est dirigé sur toutes les 
+étapes appartenant au module Audit Interne : ingestion, traitement multimodal, gestion des 
+exigences, cartographie des preuves, évaluation, gestion des non-conformités, CAPA, 
+rapport final. 
+ 
+ 🧩 Stack technique retenue 
+- **Supabase** : base relationnelle (PostgreSQL), source de vérité des données métiers et 
+metadata   
+- **Milvus** : base vectorielle pour RAG / similarité sémantique, référence de contenu 
+document   
+- **Redis** : event bus, cache léger, orchestration à grain fin entre agents   
+- **LLM open source** : ex: Llama 3, Mistral via Ollama ou vLLM pour raisonnements 
+structurés et validations   
+ 
+🧠 Approche : prise en charge de la multimodalité 
+(audit réel) 
+En contexte audit, les preuves et documents proviennent de formats disparates, chacun 
+nécessitant un traitement adapté. Pour maximiser la fiabilité: 
+ 
+| Type | Exemple | Traitement proposé | 
+|---|---|---| 
+| 📄 PDF | Procédures, politiques | OCR + chunking + embeddings | 
+| 📊 Excel | Checklist | parsing structuré | 
+| 📝 Word | Rapport | extraction texte | 
+| 🖼️ Image | Photo preuve | OCR | 
+| 📧 Email | preuve de communication | parsing | 
+ 
+| 🗃️ Métadonnées | version, date, owner | stockage structuré | 
+ 
+Le principe est explicite : la structure arrive avant le jugement IA. Sans contenu tracé, les 
+garanties d’audit deviennent fragilisées. 
+ 
+🏗️ Architecture globale (réaliste pour du 
+production “amanagé”) 
+``` 
+User → API → Supabase (data) 
+               ↓ 
+            File Storage 
+               ↓ 
+        Preprocessing Service 
+               ↓ 
+        Embeddings → Milvus 
+               ↓ 
+          Agents (LLM) 
+               ↓ 
+             Redis Events 
+ 
+Cette architecture permet de conserver une trace complète : fichiers, versions, 
+métadonnées, extraits vectorialisés, décisions IA et séquencement d’activités via 
+événements. 
+ 
+🚀 Roadmap étape par étape — uniquement 
+Module Audit Interne 
+ 
+✅ PHASE 1 — DATA MODEL DESIGN (CRITIQUE) 
+Avant toute orchestration IA, il est fondamental de stabiliser un schéma compatible audit : 
+suivi d’historique, traçabilité, relations entre exigences, preuves, NC, CAPA et statut. 
+ 
+STEP 1 — Modélisation Supabase (tables principales) 
+1️⃣ `audits`   
+- Input : création d’audit   
+- Output : `audit_id` 
+ 
+ 
+ 
+ 
+ 
+2️⃣ `checklists`   
+| Field | Type | 
+|---|---| 
+| id | uuid | 
+| audit_id | fk | 
+| requirement_id | string | 
+| description | text | 
+| criticality | enum | 
+| status | enum | 
+ 
+3️⃣ `documents`   
+| Field | Type | 
+|---|| 
+| id | uuid | 
+| name | text | 
+| version | text | 
+| owner | text | 
+| upload_date | timestamp | 
+| file_path | text | 
+ 
+4️⃣ `evidence_mapping`   
+- Colonnes : `requirement_id`, `document_id`, `similarity_score`   
+- Permet la traçabilité explicite d’à quels documents une exigence a été reliée, avec score. 
+ 
+5️⃣ `non_conformities`   
+- `requirement_id`, `severity`, `description`, `status` 
+ 
+6️⃣ `capa_actions`   
+- `nc_id`, `responsible`, `due_date`, `status`, `proof_document` 
+ 
+OUTPUT attendus de cette phase 
+- Schéma DB stable et audit-friendly   
+- Relations explicites (audit → exigences → preuves → NC → CAPA)   
+- Fondation prête pour opérations structurées des agents   
+ 
+--- 
+ 
+✅ PHASE 2 — DOCUMENT INGESTION PIPELINE 
+(multimodal) 
+Cette phase rend exploitables les fichiers auditables. 
+ 
+STEP 2 — Upload & Préprocessing 
+**INPUTS** : PDF, Excel, Word, Image   
+**PROCESS** : 
+- Extraction texte : pdfplumber, python-docx, pandas, Tesseract (OCR) 
+ 
+- Nettoyage 
+- Chunking typiquement 500–800 tokens 
+- Embeddings (ex : bge-small, e5-base) 
+- Stockage : 
+  - Texte + structure → Supabase 
+  - Vecteurs → Milvus 
+  - Metadata → Supabase 
+ 
+**OUTPUT** : 
+ 
+Milvus stocke au minimum : 
+```json 
+{ 
+  "chunk_id": "...", 
+  "embedding_vector": [...], 
+  "document_id": "...", 
+  "requirement_reference": null 
+} 
+``` 
+Supabase conserve documents + metadata structured. 
+ 
+ ✅ PHASE 3 — AGENT 1 : CHECKLIST MANAGER 
+Agent responsable de rendre “machine-readable” la grille d’audit. 
+ 
+**INPUT** : Excel checklist OU PDF structuré   
+**PROCESS** : 
+- Parsing structuré 
+- Extraction : ID exigence, description, criticité 
+- Validation optionnelle via LLM (cohérence structurée, anomalies de format) 
+**OUTPUT** : 
+- Remplissage de `checklists` 
+- Événement Redis : 
+```json 
+{ 
+  "event": "checklist_ready", 
+  "audit_id": "..." 
+} 
+ 
+✅ PHASE 4 — AGENT 2 : EVIDENCE MAPPER (RAG) 
+Ce passage exploite explicitement Milvus. Il est central car il alimente la substance 
+documentaire derrière chaque jugement. 
+ 
+**INPUT** : 
+ 
+- requirement.description 
+- embeddings des documents (Milvus) 
+**PROCESS** : 
+- Embedding de l’exigence 
+- Recherche top-k en similarité 
+- Sélection candidats 
+- LLM : filtre, justifie, détecte non correspondance/hallucination 
+**OUTPUT** : 
+```json 
+{ 
+  "event": "evidence_mapped", 
+  "requirement_id": "...", 
+  "documents": [...], 
+  "coverage_score": 0.0 
+} 
+``` 
+- Enregistré également dans `evidence_mapping` 
+ 
+ 
+✅ PHASE 5 — AGENT 3 : COMPLIANCE EVALUATOR 
+Combine état structuré + conteúdo sémantique + règles métier, avec registre décisionnel 
+JSON. 
+ 
+**INPUT** : 
+```json 
+{ 
+  "requirement": "...", 
+  "linked_documents": [...], 
+  "metadata": {...} 
+} 
+``` 
+**PROCESS** :   
+Prompt structuré demandant une évaluation conforme à un format opérationnel : 
+```json 
+{ 
+  "status": "conform / partial / non_conform", 
+  "justification": "...", 
+  "risk_level": "..." 
+} 
+``` 
+**OUTPUT** : 
+- Mise à jour de `checklist.status` 
+- Événement Redis `compliance_evaluated` 
+ 
+--- 
+ 
+ 
+✅ PHASE 6 — NON CONFORMITY MANAGER 
+**INPUT** : exigences avec `status = non_conform`   
+**PROCESS** : 
+- LLM génère : description NC, impact, recommandation initiale 
+**OUTPUT** : 
+- Remplissage `non_conformities` 
+- Événement `nc_generated` 
+ 
+ 
+ 
+✅ PHASE 7 — CAPA MANAGER 
+**INPUT** : événement `nc_generated`   
+**PROCESS** : 
+- LLM suggère action corrective, priorité, délai conseillé 
+- Validation humaine / ajustements 
+**OUTPUT** : 
+- `capa_actions` 
+- Événement `capa_updated` 
+ 
+ 
+✅ PHASE 8 — AUDIT REPORT GENERATOR 
+**INPUT** : checklist final, NC, CAPA, score global   
+**PROCESS** : 
+- Synthèse LLM → résumé exécutif, tableau conformité, score %, liste NC, plan CAPA 
+**OUTPUT** : 
+- Génération PDF 
+- Événement `audit_report_ready` 
+ 
+ 
+🔥 Stratégie multi-agent recommandée (ordre de 
+mise en œuvre) 
+Pour éviter l’instabilité : ne pas aborder tous les agents simultanément. 
+ 
+Ordre conseillé : 
+1. ✅ Schéma DB   
+2. ✅ Ingestion documents   
+3. ✅ Milvus opérationnel   
+4. ✅ Checklist Manager   
+5. ✅ Evidence Mapper   
+ 
+6. ✅ Compliance Evaluator   
+ 
+Les étapes suivantes viennent au fil de l’extension, sans redépenser d’énergie sur l’ancrage 
+de la donnée. 
+ 
+Analyse Critique des Choix Techniques & Modèles 
+Open Source 
+ 
+1. Évaluation de l'Architecture Actuelle 
+Ce qui est BON ✅ 
+ 
+ 
+Ce qui mérite réflexion ⚠️ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+2. Benchmark Complet des Modèles LLM Open Source 
+2.1 Modèles pour le Raisonnement / Évaluation ISO 
+ 
+ 
+ 
+ 2.2 Notre Recommandation : Stratégie Multi-Modèles 
+ 
+ 
+3. Benchmark Modèles d'Embedding 
+ 
+# MEILLEURE OPTION pour QualiNova (fr + en + arabe possible) 
+model = SentenceTransformer('intfloat/multilingual-e5-large') 
+ 
+# OU pour moins de RAM avec très bonne qualité 
+model = SentenceTransformer('BAAI/bge-m3') 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+4. Benchmark OCR 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+5. Stack Finale Recommandée (Révisée) 
+ 
+ 
+ 
+ 
+6. Stratégie de Routage LLM par Agent 
+# config/llm_router.py 
+ 
+LLM_CONFIG = { 
+     
+    # Agent 1 - Checklist Manager 
+    # Tâche : structurer une checklist → simple 
+    "checklist_manager": { 
+        "model": "phi3.5",        # 3.8B — rapide 
+        "temperature": 0.1,       # Très déterministe 
+        "max_tokens": 2048 
+    }, 
+     
+    # Agent 2 - Evidence Mapper 
+    # Tâche : valider pertinence doc → moyen 
+    "evidence_mapper": { 
+        "model": "llama3.1:8b",   # 8B — bon équilibre 
+        "temperature": 0.1, 
+        "max_tokens": 1024 
+    }, 
+ 
+     
+    # Agent 3 - Compliance Evaluator 
+    # Tâche : évaluation juridique ISO → complexe 
+    "compliance_evaluator": { 
+        "model": "qwen2.5:14b",   # 14B — précis 
+        "temperature": 0.05,      # Très factuel 
+        "max_tokens": 2048 
+    }, 
+     
+    # Agent 4 - NC Manager 
+    # Tâche : rédiger fiches NC → moyen/complexe 
+    "nc_manager": { 
+        "model": "qwen2.5:14b",   # 14B — rédaction pro 
+        "temperature": 0.2, 
+        "max_tokens": 1024 
+    }, 
+     
+    # Agent 5 - CAPA Manager 
+    # Tâche : plans d'action détaillés → moyen 
+    "capa_manager": { 
+        "model": "llama3.1:8b",   # 8B — assez bon 
+        "temperature": 0.3,       # Un peu créatif 
+        "max_tokens": 2048 
+    }, 
+     
+    # Agent 6 - Report Generator 
+    # Tâche : rédiger résumé exécutif → complexe 
+    "report_generator": { 
+        "model": "qwen2.5:14b",   # 14B — meilleure rédaction 
+        "temperature": 0.4,       # Plus fluide 
+        "max_tokens": 4096 
+    } 
+} 
+ 
+ 7. Configuration Docker Révisée 
+ 
+# docker-compose.yml — VERSION FINALE 
+ 
+services: 
+ 
+  # ── LLM Engine ────────────────────────────── 
+  ollama: 
+    image: ollama/ollama:latest 
+    ports: 
+      - "11434:11434" 
+    volumes: 
+ 
+      - ollama_data:/root/.ollama 
+    deploy: 
+      resources: 
+        reservations: 
+          devices: 
+            - driver: nvidia 
+              count: 1 
+              capabilities: [gpu]   # Si GPU dispo 
+    # Script init pour pull les modèles 
+    entrypoint: > 
+      sh -c "ollama serve & 
+             sleep 5 && 
+             ollama pull phi3.5 && 
+             ollama pull llama3.1:8b && 
+             ollama pull qwen2.5:14b && 
+             ollama pull deepseek-r1:8b && 
+             wait" 
+ 
+  # ── Vector DB ─────────────────────────────── 
+  milvus: 
+    image: milvusdb/milvus:v2.4.0 
+    ports: 
+      - "19530:19530" 
+    environment: 
+      ETCD_ENDPOINTS: etcd:2379 
+      MINIO_ADDRESS: minio:9000 
+    depends_on: 
+      - etcd 
+      - minio 
+ 
+  etcd: 
+    image: quay.io/coreos/etcd:v3.5.5 
+    environment: 
+      ETCD_AUTO_COMPACTION_MODE: revision 
+      ETCD_QUOTA_BACKEND_BYTES: "4294967296" 
+ 
+  minio: 
+    image: minio/minio:latest 
+    environment: 
+      MINIO_ACCESS_KEY: minioadmin 
+      MINIO_SECRET_KEY: minioadmin 
+    command: minio server /data 
+ 
+  # ── Cache & Events ────────────────────────── 
+  redis: 
+    image: redis:7-alpine 
+    ports: 
+      - "6379:6379" 
+ 
+    command: redis-server --maxmemory 2gb --maxmemory-policy allkeys-lru 
+ 
+  # ── Application ───────────────────────────── 
+  api: 
+    build: . 
+    ports: 
+      - "8000:8000" 
+    environment: 
+      SUPABASE_URL: ${SUPABASE_URL} 
+      SUPABASE_KEY: ${SUPABASE_KEY} 
+      REDIS_HOST: redis 
+      MILVUS_HOST: milvus 
+      OLLAMA_HOST: http://ollama:11434 
+      EMBEDDING_MODEL: intfloat/multilingual-e5-large 
+    depends_on: 
+      - redis 
+      - milvus 
+      - ollama 
+ 
+volumes: 
+  ollama_data: 
+8. Besoins Matériels Selon Configuration 
+ 
+ 
+ 
+ 9. Résumé des Changements à Faire 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+vLLM — Explication Complète & Simple 
+ 
+ 1. C'est Quoi vLLM en Termes Simples ? 
+   
+  Imagine un restaurant :                                     
+                                                              
+  🍽️  OLLAMA = Un cuisinier seul                                
+      → Il prend UNE commande                                    
+      → La cuisine                                               
+      → La sert                                                  
+      → PUIS prend la commande suivante                          
+      → Client 2 attend que Client 1 soit servi                  
+                                                                  
+  🏭  vLLM = Une cuisine industrielle avec chef + équipe          
+       → Il prend 10 commandes EN MÊME TEMPS                      
+       → Les cuisine en parallèle (batching)                      
+      → Sert tout le monde presque simultanément                 
+      → Beaucoup plus efficace pour BEAUCOUP de clients          
+                                                            
+ 
+2. Le Problème que vLLM Résout 
+ 
+SANS vLLM (Ollama) — 5 agents font des requêtes LLM en même temps : 
+ 
+  Agent 1 ──────────────────────────────► LLM  [████████] 8 sec 
+  Agent 2 ──► attend ──────────────────► LLM  [████████] 8 sec 
+  Agent 3 ──► attend ──► attend ───────► LLM  [████████] 8 sec 
+  Agent 4 ──► attend ──► attend ──► att► LLM  [████████] 8 sec 
+  Agent 5 ──► attend x4 ───────────────► LLM  [████████] 8 sec 
+                                               Total : 40 sec ❌ 
+ 
+ 
+AVEC vLLM — 5 agents font des requêtes LLM en même temps : 
+ 
+  Agent 1 ──┐ 
+  Agent 2 ──┤ 
+  Agent 3 ──┼──► vLLM  [████████████] 12 sec (tous ensemble) 
+  Agent 4 ──┤ 
+  Agent 5 ──┘ 
+                        Total : 12 sec ✅  (x3 plus rapide) 
+ 
+ 
+ 
+ 
+3. La Technologie Clé : PagedAttention 
+ 
+4. Dans QualiNova — Où et Comment On Utilise vLLM ? 
+ La réponse courte  
+─────────┐ 
+│  vLLM est UN SERVEUR qu'on lance UNE FOIS                       │ 
+│  Tous les agents s'y connectent comme à une API                 │ 
+│  C'est TRANSPARENT pour le code des agents                      │ 
+└──────────────────────────────────────────────────────── 
+ 
+Schéma dans QualiNova : 
+ 
+ 
+ 
+ 5. Comment On Lance vLLM — Pas à Pas 
+Étape 1 : Installation 
+ 
+```bash 
+# Prérequis : NVIDIA GPU + CUDA 11.8+ 
+ 
+# Installer vLLM 
+pip install vllm 
+ 
+# OU avec Docker (recommandé) 
+docker pull vllm/vllm-openai:latest 
+``` 
+ 
+Étape 2 : Lancer le serveur vLLM 
+ 
+```bash 
+# Option A — Ligne de commande directe 
+python -m vllm.entrypoints.openai.api_server \ 
+ 
+    --model Qwen/Qwen2.5-14B-Instruct \ 
+    --host 0.0.0.0 \ 
+    --port 8000 \ 
+    --dtype auto \ 
+    --max-model-len 8192 \ 
+    --gpu-memory-utilization 0.85 
+ 
+Option B — Docker 
+docker run --gpus all \ 
+    -p 8000:8000 \ 
+    -v ~/.cache/huggingface:/root/.cache/huggingface \ 
+    vllm/vllm-openai:latest \ 
+    --model Qwen/Qwen2.5-14B-Instruct \ 
+    --dtype auto 
+ 
+ Le serveur est maintenant disponible sur : 
+http://localhost:8000/v1 
+Compatible API OpenAI → nos agents se connectent directement 
+ 
+Étape 3 : Vérifier que ça marche 
+ 
+```bash 
+# Test simple avec curl 
+curl http://localhost:8000/v1/chat/completions \ 
+  -H "Content-Type: application/json" \ 
+  -d '{ 
+    "model": "Qwen/Qwen2.5-14B-Instruct", 
+    "messages": [ 
+      { 
+        "role": "user", 
+        "content": "Explique ISO 9001 en 2 phrases" 
+      } 
+    ], 
+    "temperature": 0.1 
+  }' 
+ 
+# Réponse attendue : 
+# {"choices": [{"message": {"content": "ISO 9001 est..."}}]} 
+``` 
+ 
+6. Comment les Agents Se Connectent à vLLM 
+ 
+```python 
+# utils/llm_factory.py 
+# LE MÊME CODE fonctionne avec Ollama ET vLLM 
+# Seule l'URL change ! 
+ 
+ 
+import os 
+from langchain_openai import ChatOpenAI 
+ 
+class LLMFactory: 
+    """ 
+    Fabrique de LLM — Ollama en dev, vLLM en prod 
+    Les agents ne savent pas lequel ils utilisent 
+    """ 
+ 
+    # Mapping agent → modèle selon complexité 
+    AGENT_MODEL_MAP = { 
+ 
+        # ── Tâches simples → petit modèle rapide ── 
+        "checklist_manager" : { 
+            "dev_model"  : "phi3.5", 
+            "prod_model" : "Qwen/Qwen2.5-3B-Instruct", 
+            "temperature": 0.1, 
+            "max_tokens" : 2048, 
+            "description": "Structuration checklist" 
+        }, 
+ 
+        # ── Tâches moyennes → modèle intermédiaire ── 
+        "evidence_mapper" : { 
+            "dev_model"  : "llama3.1:8b", 
+            "prod_model" : "meta-llama/Llama-3.1-8B-Instruct", 
+            "temperature": 0.1, 
+            "max_tokens" : 1024, 
+            "description": "Validation pertinence documents" 
+        }, 
+ 
+        # ── Tâches complexes → grand modèle précis ── 
+        "compliance_evaluator" : { 
+            "dev_model"  : "qwen2.5:14b", 
+            "prod_model" : "Qwen/Qwen2.5-14B-Instruct", 
+            "temperature": 0.05, 
+            "max_tokens" : 2048, 
+            "description": "Évaluation conformité ISO" 
+        }, 
+ 
+        "nc_manager" : { 
+            "dev_model"  : "qwen2.5:14b", 
+            "prod_model" : "Qwen/Qwen2.5-14B-Instruct", 
+            "temperature": 0.2, 
+            "max_tokens" : 1024, 
+            "description": "Rédaction fiches NC" 
+        }, 
+ 
+ 
+        "capa_manager" : { 
+            "dev_model"  : "llama3.1:8b", 
+            "prod_model" : "meta-llama/Llama-3.1-8B-Instruct", 
+            "temperature": 0.3, 
+            "max_tokens" : 2048, 
+            "description": "Plans d'actions CAPA" 
+        }, 
+ 
+        "report_generator" : { 
+            "dev_model"  : "qwen2.5:14b", 
+            "prod_model" : "Qwen/Qwen2.5-14B-Instruct", 
+            "temperature": 0.4, 
+            "max_tokens" : 4096, 
+            "description": "Génération rapport final" 
+        }, 
+ 
+        # ── Raisonnement logique → DeepSeek R1 ── 
+        "gap_analysis" : { 
+            "dev_model"  : "deepseek-r1:8b", 
+            "prod_model" : "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B", 
+            "temperature": 0.1, 
+            "max_tokens" : 4096, 
+            "description": "Analyse d'écarts critique" 
+        }, 
+    } 
+ 
+    def __init__(self): 
+        self.env = os.getenv("ENV", "development") 
+ 
+        # URLs des serveurs LLM 
+        if self.env == "production": 
+            # vLLM — deux serveurs selon taille modèle 
+            self.url_heavy = os.getenv( 
+                "VLLM_HEAVY_URL", 
+                "http://vllm-heavy:8000/v1"   # Grand modèle (14B) 
+            ) 
+            self.url_light = os.getenv( 
+                "VLLM_LIGHT_URL", 
+                "http://vllm-light:8001/v1"   # Petit modèle (3B-8B) 
+            ) 
+            print(f"🚀 vLLM Production — Heavy: {self.url_heavy}") 
+        else: 
+            # Ollama — un seul serveur local 
+            self.url_ollama = os.getenv( 
+                "OLLAMA_URL", 
+                "http://localhost:11434/v1" 
+            ) 
+            print(f"🧪 Ollama Dev — {self.url_ollama}") 
+ 
+ 
+    def get_llm(self, agent_name: str) -> ChatOpenAI: 
+        """ 
+        Retourne le LLM configuré pour cet agent 
+        Code identique que ce soit Ollama ou vLLM 
+        """ 
+ 
+        # Récupérer la config de l'agent 
+        config = self.AGENT_MODEL_MAP.get( 
+            agent_name, 
+            self.AGENT_MODEL_MAP["evidence_mapper"]  # défaut 
+        ) 
+ 
+        if self.env == "production": 
+            # ── Production : vLLM ────────────────────────────── 
+            model_name = config["prod_model"] 
+ 
+            # Choisir le serveur selon la taille du modèle 
+            is_heavy_model = "14B" in model_name or "32B" in model_name 
+            base_url = self.url_heavy if is_heavy_model else self.url_light 
+ 
+        else: 
+            # ── Développement : Ollama ────────────────────────── 
+            model_name = config["dev_model"] 
+            base_url   = self.url_ollama 
+ 
+        print(f"  🤖 Agent [{agent_name}] → {model_name} @ {base_url}") 
+ 
+        # API compatible OpenAI → MÊME code pour Ollama et vLLM 
+        return ChatOpenAI( 
+            model       = model_name, 
+            base_url    = base_url, 
+            api_key     = "not-needed",       # Ollama/vLLM n'ont pas besoin 
+            temperature = config["temperature"], 
+            max_tokens  = config["max_tokens"], 
+            timeout     = 120,                # 2 min max par requête 
+        ) 
+ 
+ 
+# 
+─────────────────────────────────────────────────────────
+───────── 
+# Instance globale — importée par tous les agents 
+# 
+─────────────────────────────────────────────────────────
+───────── 
+llm_factory = LLMFactory() 
+``` 
+ 
+ 
+### Utilisation dans un Agent 
+ 
+```python 
+# agents/compliance_evaluator.py 
+ 
+from utils.llm_factory import llm_factory 
+ 
+class ComplianceEvaluatorAgent: 
+ 
+    def __init__(self): 
+        # L'agent demande son LLM à la factory 
+        # Il ne sait PAS si c'est Ollama ou vLLM 
+        self.llm = llm_factory.get_llm("compliance_evaluator") 
+ 
+    def evaluate(self, requirement: str, document: str) -> dict: 
+ 
+        from langchain.schema import HumanMessage, SystemMessage 
+ 
+        messages = [ 
+            SystemMessage(content="""Tu es un auditeur ISO certifié expert. 
+Évalue si ce document prouve la conformité à l'exigence donnée. 
+Réponds UNIQUEMENT en JSON valide."""), 
+ 
+            HumanMessage(content=f""" 
+EXIGENCE : {requirement} 
+ 
+DOCUMENT : {document[:1500]} 
+ 
+Réponds en JSON : 
+{{ 
+  "status": "conforme|partiellement_conforme|non_conforme", 
+  "score": 0.0, 
+  "justification": "...", 
+  "lacunes": [], 
+  "recommandations": [] 
+}}""") 
+        ] 
+ 
+        # Appel identique — Ollama ou vLLM derrière 
+        response = self.llm.invoke(messages) 
+ 
+        import json 
+        text = response.content 
+        start = text.find('{') 
+        end   = text.rfind('}') + 1 
+        return json.loads(text[start:end]) 
+``` 
+ 
+ 
+--- 
+ 
+ 7. Quand Lancer vLLM dans QualiNova 
+┌────────────────────────────────────────────────────────
+─────────┐ 
+│                   SCÉNARIOS CONCRETS                            │ 
+├────────────────────────────────────────────────────────
+─────────┤ 
+│                                                                 │ 
+│  SCÉNARIO 1 : Tu développes seul sur ton PC                     │ 
+│  ┌──────────────────────────────────────────┐                  │ 
+│  │  → Utilise Ollama                        │                  │ 
+│  │  → ollama pull qwen2.5:14b               │                  │ 
+│  │  → Simple, rapide à lancer               │                  │ 
+│  │  → CPU possible si pas de GPU            │                  │ 
+│  └──────────────────────────────────────────┘                  │ 
+│                                                                 │ 
+│  SCÉNARIO 2 : Tu testes avec une équipe (5-10 personnes)        │ 
+│  ┌──────────────────────────────────────────┐                  │ 
+│  │  → Ollama suffit encore                  │                  │ 
+│  │  → 1 serveur Ollama partagé              │                  │ 
+│  │  → GPU 8GB recommandé                    │                  │ 
+│  └──────────────────────────────────────────┘                  │ 
+│                                                                 │ 
+│  SCÉNARIO 3 : Démo cabinet d'audit (plusieurs audits en        │ 
+│               parallèle)                                        │ 
+│  ┌──────────────────────────────────────────┐                  │ 
+│  │  → Passer à vLLM                         │                  │ 
+│  │  → GPU 16GB minimum                      │                  │ 
+│  │  → docker-compose.prod.yml               │                  │ 
+│  │  → Zéro changement de code agent         │                  │ 
+│  └──────────────────────────────────────────┘                  │ 
+│                                                                 │ 
+│  SCÉNARIO 4 : Production SaaS (100+ utilisateurs)              │ 
+│  ┌──────────────────────────────────────────┐                  │ 
+│  │  → vLLM multi-GPU                        │                  │ 
+│  │  → --tensor-parallel-size 2              │                  │ 
+│  │  → Kubernetes + autoscaling              │                  │ 
+│  └──────────────────────────────────────────┘                  │ 
+│                                                                 │ 
+└────────────────────────────────────────────────────────
+─────────┘ 
+``` 
+ 
+--- 
+ 
+8. Résumé Ultra Simple 
+┌────────────────────────────────────────────────────────
+─────────┐ 
+│                                                                 │ 
+│  vLLM = Un serveur Web qui héberge ton modèle LLM               │ 
+│                                                                 │ 
+│  Tu le lances UNE FOIS avec une commande                        │ 
+│         ↓                                                       │ 
+│  Il écoute sur http://localhost:8000                            │ 
+│         ↓                                                       │ 
+│  Tes 6 agents envoient leurs prompts à cette URL                │ 
+│         ↓                                                       │ 
+│  vLLM gère les requêtes en parallèle avec PagedAttention        │ 
+│         ↓                                                       │ 
+│  Retourne les réponses JSON (même format qu'OpenAI API)         │ 
+│                                                                 │ 
+│  
+─────────────────────────────────────────────────────────
+───   │ 
+│                                                                 │ 
+│  OLLAMA  → Pour développer et tester (maintenant)               │ 
+│  vLLM    → Pour déployer en production (plus tard)              │ 
+│                                                                 │ 
+│  CODE IDENTIQUE dans les deux cas ✅                            │ 
+│  Seule l'URL change dans le .env ✅                             │ 
+│                                                                 │ 
+└────────────────────────────────────────────────────────
+─────────┘ 
+ 
+**En une phrase :** vLLM est le moteur qui fait tourner ton LLM de façon industrielle — tu 
+commences avec Ollama, tu passes à vLLM quand tu as besoin de performance pour 
+plusieurs utilisateurs simultanés. 
+ 
